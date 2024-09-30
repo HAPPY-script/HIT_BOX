@@ -1,0 +1,188 @@
+local player = game.Players.LocalPlayer
+local userInputService = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
+
+-- Giao diện GUI
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+local mainFrame = Instance.new("Frame", gui)
+mainFrame.Size = UDim2.new(0, 400, 0, 400)
+mainFrame.Position = UDim2.new(0.5, -200, 0.5, -200)
+mainFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+
+local function createLabel(parent, size, pos, text, color)
+    local label = Instance.new("TextLabel", parent)
+    label.Size = size
+    label.Position = pos
+    label.Text = text
+    label.TextColor3 = color
+    label.BackgroundTransparency = 1
+    label.TextScaled = true
+    return label
+end
+
+createLabel(mainFrame, UDim2.new(1, 0, 0.1, 0), UDim2.new(), "Nhập Key", Color3.new(0, 0, 0))
+
+local inputBox = Instance.new("TextBox", mainFrame)
+inputBox.Size = UDim2.new(1, 0, 0.1, 0)
+inputBox.Position = UDim2.new(0, 0, 0.1, 0)
+inputBox.PlaceholderText = "Nhập key ở đây"
+inputBox.TextScaled = true
+
+local submitButton = Instance.new("TextButton", mainFrame)
+submitButton.Size = UDim2.new(1, 0, 0.1, 0)
+submitButton.Position = UDim2.new(0, 0, 0.2, 0)
+submitButton.Text = "Xác Nhận"
+submitButton.BackgroundColor3 = Color3.new(0, 0.78, 0)
+submitButton.TextColor3 = Color3.new(1, 1, 1)
+
+local errorLabel = createLabel(mainFrame, UDim2.new(1, 0, 0.1, 0), UDim2.new(0, 0, 0.3, 0), "", Color3.new(1, 0, 0))
+
+local toggleFrame = Instance.new("Frame", gui)
+toggleFrame.Size = UDim2.new(0, 200, 0, 200)
+toggleFrame.Position = UDim2.new(0.7, 0, 0.3, 0)
+toggleFrame.BackgroundColor3 = Color3.new(0.8, 0.8, 0.8)
+toggleFrame.Visible = false
+
+local toggleButton = Instance.new("TextButton", toggleFrame)
+toggleButton.Size = UDim2.new(1, 0, 0.2, 0)
+toggleButton.Position = UDim2.new(0, 0, 0, 0)
+toggleButton.Text = "Tắt Chế Độ"
+toggleButton.BackgroundColor3 = Color3.new(0.5, 0.5, 0.5)
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
+
+local sizeInput = Instance.new("TextBox", toggleFrame)
+sizeInput.Size = UDim2.new(1, 0, 0.2, 0)
+sizeInput.Position = UDim2.new(0, 0, 0.2, 0)
+sizeInput.PlaceholderText = "Kích thước"
+sizeInput.TextScaled = true
+
+local transparencyInput = Instance.new("TextBox", toggleFrame)
+transparencyInput.Size = UDim2.new(1, 0, 0.2, 0)
+transparencyInput.Position = UDim2.new(0, 0, 0.4, 0)
+transparencyInput.PlaceholderText = "Độ trong suốt (0-1)"
+transparencyInput.TextScaled = true
+
+local colorButton = Instance.new("TextButton", toggleFrame)
+colorButton.Size = UDim2.new(1, 0, 0.2, 0)
+colorButton.Position = UDim2.new(0, 0, 0.6, 0)
+colorButton.Text = "Chọn Màu"
+colorButton.BackgroundColor3 = Color3.new(0.5, 0.5, 0.5)
+colorButton.TextColor3 = Color3.new(1, 1, 1)
+
+local colorMenu = Instance.new("Frame", gui)
+colorMenu.Size = UDim2.new(0, 200, 0, 200)
+colorMenu.Position = UDim2.new(0.5, -100, 0.5, -100)
+colorMenu.BackgroundColor3 = Color3.new(1, 1, 1)
+colorMenu.Visible = false
+
+local colors = {
+    "Really red", "Really green", "Really blue", "Bright yellow", "Bright orange",
+    "Bright violet", "Bright pink", "Dark stone gray", "Light blue", "Earth green"
+}
+
+for i, colorName in ipairs(colors) do
+    local colorButton = Instance.new("TextButton", colorMenu)
+    colorButton.Size = UDim2.new(1, 0, 0.1, 0)
+    colorButton.Position = UDim2.new(0, 0, (i - 1) * 0.1, 0)
+    colorButton.Text = colorName
+    colorButton.BackgroundColor3 = BrickColor.new(colorName).Color
+    colorButton.TextColor3 = Color3.new(1, 1, 1)
+    
+    colorButton.MouseButton1Click:Connect(function()
+        _G.Disabled = false -- Kích hoạt chế độ
+        colorMenu.Visible = false
+        _G.Color = BrickColor.new(colorName) -- Lưu màu đã chọn
+    end)
+end
+
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+local function updateInput(input)
+    local delta = input.Position - dragStart
+    toggleFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+toggleFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = toggleFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+toggleFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+userInputService.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        updateInput(input)
+    end
+end)
+
+submitButton.MouseButton1Click:Connect(function()
+    if inputBox.Text == "HAPPY_FAMILY" then
+        mainFrame:Destroy()
+        toggleFrame.Visible = true
+
+        toggleButton.MouseButton1Click:Connect(function()
+            _G.Disabled = not _G.Disabled
+            toggleButton.Text = _G.Disabled and "Tắt Chế Độ" or "Bật Chế Độ"
+            toggleButton.BackgroundColor3 = _G.Disabled and Color3.new(0.5, 0.5, 0.5) or Color3.new(0, 1, 0)
+
+            while not _G.Disabled do
+                for _, v in pairs(game:GetService('Players'):GetPlayers()) do
+                    if v.Name ~= player.Name then
+                        pcall(function()
+                            local humanoidRootPart = v.Character:FindFirstChild("HumanoidRootPart")
+                            if humanoidRootPart then
+                                humanoidRootPart.Size = Vector3.new(_G.HeadSize or 20, _G.HeadSize or 20, _G.HeadSize or 20)
+                                humanoidRootPart.Transparency = transparencyInput.Text ~= "" and tonumber(transparencyInput.Text) or 0.5
+                                humanoidRootPart.BrickColor = _G.Color or BrickColor.new("Really white")
+                                humanoidRootPart.Material = "Neon"
+                                humanoidRootPart.CanCollide = false
+                            end
+                        end)
+                    end
+                end
+                runService.RenderStepped:Wait()
+            end
+            
+            for _, v in pairs(game:GetService('Players'):GetPlayers()) do
+                if v.Name ~= player.Name then
+                    pcall(function()
+                        local humanoidRootPart = v.Character:FindFirstChild("HumanoidRootPart")
+                        if humanoidRootPart then
+                            humanoidRootPart.CanCollide = true
+                        end
+                    end)
+                end
+            end
+        end)
+
+        sizeInput.FocusLost:Connect(function()
+            local size = tonumber(sizeInput.Text)
+            if size then
+                _G.HeadSize = size
+            end
+        end)
+
+        colorButton.MouseButton1Click:Connect(function()
+            colorMenu.Visible = not colorMenu.Visible
+        end)
+    else
+        errorLabel.Text = "Key không đúng"
+        inputBox.Text = ""
+    end
+end)
