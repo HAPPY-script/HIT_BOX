@@ -95,41 +95,48 @@ for i, colorName in ipairs(colors) do
     end)
 end
 
+-- Hàm kéo thả
 local dragging
 local dragInput
 local dragStart
 local startPos
 
-local function updateInput(input)
+local function updateInput(input, frame)
     local delta = input.Position - dragStart
-    toggleFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end
 
-toggleFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = toggleFrame.Position
-        
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
+local function makeDraggable(frame)
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
 
-toggleFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
-end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
 
-userInputService.InputChanged:Connect(function(input)
-    if dragging and input == dragInput then
-        updateInput(input)
-    end
-end)
+    userInputService.InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            updateInput(input, frame)
+        end
+    end)
+end
+
+-- Làm cho các frame có thể kéo thả
+makeDraggable(mainFrame)
+makeDraggable(toggleFrame)
 
 submitButton.MouseButton1Click:Connect(function()
     if inputBox.Text == "HAPPY_FAMILY" then
@@ -179,10 +186,9 @@ submitButton.MouseButton1Click:Connect(function()
         end)
 
         colorButton.MouseButton1Click:Connect(function()
-            colorMenu.Visible = not colorMenu.Visible
+            colorMenu.Visible = true
         end)
     else
-        errorLabel.Text = "Key không đúng"
-        inputBox.Text = ""
+        errorLabel.Text = "Sai key!"
     end
 end)
