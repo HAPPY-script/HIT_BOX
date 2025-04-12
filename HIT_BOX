@@ -1,20 +1,21 @@
 game.StarterGui:SetCore("SendNotification", {
-    Title = "KEY";
-    Text = "HAPPY_FAMILY";
-    Duration = 60;
+    Title = "HITBOX";
+    Text = "Goodluck";
+    Duration = 5;
 })
 
 local player = game.Players.LocalPlayer
 local userInputService = game:GetService("UserInputService")
 local runService = game:GetService("RunService")
 
--- Giao diện GUI
+-- Giao diện GUI mới
 local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 local mainFrame = Instance.new("Frame", gui)
-mainFrame.Size = UDim2.new(0, 400, 0, 400)
-mainFrame.Position = UDim2.new(0.5, -200, 0.5, -200)
-mainFrame.BackgroundColor3 = Color3.new(1, 1, 1)
+mainFrame.Size = UDim2.new(0, 300, 0, 200)
+mainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+mainFrame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
 
+-- Hàm tạo nhãn
 local function createLabel(parent, size, pos, text, color)
     local label = Instance.new("TextLabel", parent)
     label.Size = size
@@ -26,55 +27,39 @@ local function createLabel(parent, size, pos, text, color)
     return label
 end
 
-createLabel(mainFrame, UDim2.new(1, 0, 0.1, 0), UDim2.new(), "Nhập Key", Color3.new(0, 0, 0))
+createLabel(mainFrame, UDim2.new(1, 0, 0.2, 0), UDim2.new(0, 0, 0, 0), "Hitbox Menu", Color3.new(1, 1, 1))
 
-local inputBox = Instance.new("TextBox", mainFrame)
-inputBox.Size = UDim2.new(1, 0, 0.1, 0)
-inputBox.Position = UDim2.new(0, 0, 0.1, 0)
-inputBox.PlaceholderText = "Nhập key ở đây"
-inputBox.TextScaled = true
-
-local submitButton = Instance.new("TextButton", mainFrame)
-submitButton.Size = UDim2.new(1, 0, 0.1, 0)
-submitButton.Position = UDim2.new(0, 0, 0.2, 0)
-submitButton.Text = "Xác Nhận"
-submitButton.BackgroundColor3 = Color3.new(0, 0.78, 0)
-submitButton.TextColor3 = Color3.new(1, 1, 1)
-
-local errorLabel = createLabel(mainFrame, UDim2.new(1, 0, 0.1, 0), UDim2.new(0, 0, 0.3, 0), "", Color3.new(1, 0, 0))
-
-local toggleFrame = Instance.new("Frame", gui)
-toggleFrame.Size = UDim2.new(0, 200, 0, 200)
-toggleFrame.Position = UDim2.new(0.7, 0, 0.3, 0)
-toggleFrame.BackgroundColor3 = Color3.new(0.8, 0.8, 0.8)
-toggleFrame.Visible = false
-
-local toggleButton = Instance.new("TextButton", toggleFrame)
+-- Nút bật/tắt chế độ
+local toggleButton = Instance.new("TextButton", mainFrame)
 toggleButton.Size = UDim2.new(1, 0, 0.2, 0)
-toggleButton.Position = UDim2.new(0, 0, 0, 0)
-toggleButton.Text = "Tắt Chế Độ"
-toggleButton.BackgroundColor3 = Color3.new(0.5, 0.5, 0.5)
+toggleButton.Position = UDim2.new(0, 0, 0.2, 0)
+toggleButton.Text = "ON"
+toggleButton.BackgroundColor3 = Color3.new(0, 1, 0)
 toggleButton.TextColor3 = Color3.new(1, 1, 1)
 
-local sizeInput = Instance.new("TextBox", toggleFrame)
+-- Kích thước đầu
+local sizeInput = Instance.new("TextBox", mainFrame)
 sizeInput.Size = UDim2.new(1, 0, 0.2, 0)
-sizeInput.Position = UDim2.new(0, 0, 0.2, 0)
-sizeInput.PlaceholderText = "Kích thước"
+sizeInput.Position = UDim2.new(0, 0, 0.4, 0)
+sizeInput.PlaceholderText = "Hitbox (1-N)"
 sizeInput.TextScaled = true
 
-local transparencyInput = Instance.new("TextBox", toggleFrame)
+-- Độ trong suốt
+local transparencyInput = Instance.new("TextBox", mainFrame)
 transparencyInput.Size = UDim2.new(1, 0, 0.2, 0)
-transparencyInput.Position = UDim2.new(0, 0, 0.4, 0)
-transparencyInput.PlaceholderText = "Độ trong suốt (0-1)"
+transparencyInput.Position = UDim2.new(0, 0, 0.6, 0)
+transparencyInput.PlaceholderText = "Transparent (0-1)"
 transparencyInput.TextScaled = true
 
-local colorButton = Instance.new("TextButton", toggleFrame)
+-- Nút chọn màu
+local colorButton = Instance.new("TextButton", mainFrame)
 colorButton.Size = UDim2.new(1, 0, 0.2, 0)
-colorButton.Position = UDim2.new(0, 0, 0.6, 0)
-colorButton.Text = "Chọn Màu"
+colorButton.Position = UDim2.new(0, 0, 0.8, 0)
+colorButton.Text = "Select Color"
 colorButton.BackgroundColor3 = Color3.new(0.5, 0.5, 0.5)
 colorButton.TextColor3 = Color3.new(1, 1, 1)
 
+-- Menu màu sắc
 local colorMenu = Instance.new("Frame", gui)
 colorMenu.Size = UDim2.new(0, 200, 0, 200)
 colorMenu.Position = UDim2.new(0.5, -100, 0.5, -100)
@@ -142,59 +127,52 @@ end
 
 -- Làm cho các frame có thể kéo thả
 makeDraggable(mainFrame)
-makeDraggable(toggleFrame)
 
-submitButton.MouseButton1Click:Connect(function()
-    if inputBox.Text == "HAPPY_FAMILY" then
-        mainFrame:Destroy()
-        toggleFrame.Visible = true
+-- Bật/tắt chế độ khi click vào nút
+toggleButton.MouseButton1Click:Connect(function()
+    _G.Disabled = not _G.Disabled
+    toggleButton.Text = _G.Disabled and "OFF" or "ON"
+    toggleButton.BackgroundColor3 = _G.Disabled and Color3.new(0.5, 0.5, 0.5) or Color3.new(0, 1, 0)
 
-        toggleButton.MouseButton1Click:Connect(function()
-            _G.Disabled = not _G.Disabled
-            toggleButton.Text = _G.Disabled and "Tắt Chế Độ" or "Bật Chế Độ"
-            toggleButton.BackgroundColor3 = _G.Disabled and Color3.new(0.5, 0.5, 0.5) or Color3.new(0, 1, 0)
-
-            while not _G.Disabled do
-                for _, v in pairs(game:GetService('Players'):GetPlayers()) do
-                    if v.Name ~= player.Name then
-                        pcall(function()
-                            local humanoidRootPart = v.Character:FindFirstChild("HumanoidRootPart")
-                            if humanoidRootPart then
-                                humanoidRootPart.Size = Vector3.new(_G.HeadSize or 20, _G.HeadSize or 20, _G.HeadSize or 20)
-                                humanoidRootPart.Transparency = transparencyInput.Text ~= "" and tonumber(transparencyInput.Text) or 0.5
-                                humanoidRootPart.BrickColor = _G.Color or BrickColor.new("Really white")
-                                humanoidRootPart.Material = "Neon"
-                                humanoidRootPart.CanCollide = false
-                            end
-                        end)
+    while not _G.Disabled do
+        for _, v in pairs(game:GetService('Players'):GetPlayers()) do
+            if v.Name ~= player.Name then
+                pcall(function()
+                    local humanoidRootPart = v.Character:FindFirstChild("HumanoidRootPart")
+                    if humanoidRootPart then
+                        humanoidRootPart.Size = Vector3.new(_G.HeadSize or 20, _G.HeadSize or 20, _G.HeadSize or 20)
+                        humanoidRootPart.Transparency = transparencyInput.Text ~= "" and tonumber(transparencyInput.Text) or 0.5
+                        humanoidRootPart.BrickColor = _G.Color or BrickColor.new("Really white")
+                        humanoidRootPart.Material = "Neon"
+                        humanoidRootPart.CanCollide = false
                     end
-                end
-                runService.RenderStepped:Wait()
+                end)
             end
-            
-            for _, v in pairs(game:GetService('Players'):GetPlayers()) do
-                if v.Name ~= player.Name then
-                    pcall(function()
-                        local humanoidRootPart = v.Character:FindFirstChild("HumanoidRootPart")
-                        if humanoidRootPart then
-                            humanoidRootPart.CanCollide = true
-                        end
-                    end)
-                end
-            end
-        end)
-
-        sizeInput.FocusLost:Connect(function()
-            local size = tonumber(sizeInput.Text)
-            if size then
-                _G.HeadSize = size
-            end
-        end)
-
-        colorButton.MouseButton1Click:Connect(function()
-            colorMenu.Visible = true
-        end)
-    else
-        errorLabel.Text = "Sai key!"
+        end
+        runService.RenderStepped:Wait()
     end
+
+    for _, v in pairs(game:GetService('Players'):GetPlayers()) do
+        if v.Name ~= player.Name then
+            pcall(function()
+                local humanoidRootPart = v.Character:FindFirstChild("HumanoidRootPart")
+                if humanoidRootPart then
+                    humanoidRootPart.CanCollide = true
+                end
+            end)
+        end
+    end
+end)
+
+-- Xử lý việc nhập kích thước
+sizeInput.FocusLost:Connect(function()
+    local size = tonumber(sizeInput.Text)
+    if size then
+        _G.HeadSize = size
+    end
+end)
+
+-- Xử lý nút chọn màu
+colorButton.MouseButton1Click:Connect(function()
+    colorMenu.Visible = true
 end)
