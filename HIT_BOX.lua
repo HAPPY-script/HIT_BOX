@@ -289,10 +289,11 @@ local GBox = SelectColor:WaitForChild("G")
 local BBox = SelectColor:WaitForChild("B")
 local ViewColor = SelectColor:WaitForChild("ViewColor")
 
---==============================================================================================================--
+--===============================================================================================================================--
 
 --========================================--
---  HITBOX SYSTEM (STABLE - NO PLAYER SKIP)
+--  HITBOX SYSTEM (ROBUST & RELIABLE)
+--  Hỗ trợ R15/R6, auto reapply, no-skip
 --========================================--
 
 local Players = game:GetService("Players")
@@ -313,134 +314,185 @@ local GBox = SelectColor:WaitForChild("G")
 local BBox = SelectColor:WaitForChild("B")
 local ViewColor = SelectColor:WaitForChild("ViewColor")
 
---========================================--
---  VARIABLES
---========================================--
 
+-- VARIABLES
 local hitboxEnabled = false
 local hiddenEnabled = false
 local hitboxSize = 20
 local hitboxColor = Color3.fromRGB(255, 255, 255)
 
-local originalData = {}    -- [player] = stored data
-local applied = {}         -- [player] = true nếu hitbox đang được áp
+-- Lưu data gốc theo UserId
+local originalData = {}   -- [userId] = { Size, Transparency, Material, Color }
 
-
---========================================--
---  UPDATE UI
---========================================--
-
+-- UI update
 local function UpdateUI()
 	Button.Text = hitboxEnabled and "ON" or "OFF"
 	Button.BackgroundColor3 = hitboxEnabled and Color3.fromRGB(50,255,50) or Color3.fromRGB(255,50,50)
-
 	HiddenButton.Text = hiddenEnabled and "Hidden: ON" or "Hidden: OFF"
 	HiddenButton.BackgroundColor3 = hiddenEnabled and Color3.fromRGB(50,255,50) or Color3.fromRGB(255,50,50)
-
 	ViewColor.BackgroundColor3 = hitboxColor
 end
-
 UpdateUI()
 
 
---========================================--
---  SAVE ORIGINAL HRP
---========================================--
+-- Helper: lấy HumanoidRootPart hoặc torso phù hợp (R15/R6)
+local function getHRP(character)
+	if not character then return nil end
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if hrp and hrp:IsA("BasePart") then return hrp end
 
+	-- R6 older names
+	hrp = character:FindFirstChild("UpperTorso") or character:FindFirstChild("LowerTorso") or character:FindFirstChild("Torso")
+	if hrp and hrp:IsA("BasePart") then return hrp end
+
+	return nil
+end
+
+
+-- Lưu giá trị gốc (luôn lưu lần đầu tiên gặp HRP)
 local function saveOriginal(plr, hrp)
-	if originalData[plr] then return end
+	if not plr or not hrp then return end
+	local id = plr.UserId
+	if originalData[id] then return end
 
-	originalData[plr] = {
-		Size = hrp.Size,
-		Transparency = hrp.Transparency,
-		Material = hrp.Material,
-		Color = hrp.Color,
-	}
+	-- pcall để an toàn (một số game chặn/override)
+	local ok, res = pcall(function()
+		originalData[id] = {
+			Size = hrp.Size,
+			Transparency = hrp.Transparency,
+			Material = hrp.Material,
+			Color = hrp.Color,
+		}
+	end)
+	-- nếu pcall fail thì vẫn tiếp tục (không lưu)
 end
 
 
---========================================--
---  RESTORE HRP
---========================================--
-
+-- Restore HRP sử dụng data gốc; nếu không có data gốc, phục hồi các giá trị an toàn
 local function restoreHRP(plr)
-	if not originalData[plr] then return end
-
-	local char = plr.Character
-	if not char then return end
-
-	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not plr or not plr.Character then return end
+	local hrp = getHRP(plr.Character)
 	if not hrp then return end
 
-	local data = originalData[plr]
+	local id = plr.UserId
+	local data = originalData[id]
 
-	hrp.Size = data.Size
-	hrp.Material = data.Material
-	hrp.Color = data.Color
-	hrp.Transparency = 0.75
-	hrp.CanCollide = true
-
-	originalData[plr] = nil
-	applied[plr] = nil
-end
-
-
---========================================--
---  APPLY HITBOX
---========================================--
-
-local function applyHRP(plr)
-	local char = plr.Character
-	if not char then return end
-
-	local hrp = char:FindFirstChild("HumanoidRootPart")
-	if not hrp then return end
-
-	saveOriginal(plr, hrp)
-
-	hrp.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-	hrp.Color = hitboxColor
-	hrp.Material = Enum.Material.Neon
-	hrp.CanCollide = false
-	hrp.Transparency = hiddenEnabled and 1 or 0.75
-
-	applied[plr] = true
-end
-
-
---========================================--
---  FORCE APPLY WHEN RESPAWN
---========================================--
-
-local function setupCharacter(plr, char)
-	task.spawn(function()
-		local hrp = char:WaitForChild("HumanoidRootPart", 5)
-		if not hrp then return end
-
-		-- Chờ HRP ổn định để tránh miss
-		task.wait(0.15)
-
-		if hitboxEnabled then
-			applyHRP(plr)
+	pcall(function()
+		if data then
+			if data.Size then hrp.Size = data.Size end
+			-- theo yêu cầu: khi restore transparency = 0.75
+			hrp.Transparency = 0.75
+			if data.Material then hrp.Material = data.Material end
+			if data.Color then hrp.Color = data.Color end
+			hrp.CanCollide = true
+			originalData[id] = nil
+		else
+			-- không có dữ liệu gốc: fallback an toàn
+			hrp.Transparency = 0.75
+			hrp.CanCollide = true
+			-- không thay đổi Size nếu không biết gốc (tránh phá mô hình)
 		end
 	end)
 end
 
 
+-- Áp dụng hitbox lên HRP (với saveOriginal trước)
+local function applyHRP(plr)
+	if not plr or not plr.Character then return false end
+	local hrp = getHRP(plr.Character)
+	if not hrp then return false end
+
+	-- Lưu gốc nếu cần
+	saveOriginal(plr, hrp)
+
+	-- Áp dụng thay đổi (pcall để an toàn)
+	local ok = pcall(function()
+		hrp.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+		hrp.CanCollide = false
+		hrp.Color = hitboxColor
+		hrp.Material = Enum.Material.Neon
+		hrp.Transparency = hiddenEnabled and 1 or 0.75
+	end)
+	return ok
+end
+
+
+-- Kiểm tra nếu HRP cần apply lại (so sánh nhanh)
+local function needsApply(plr)
+	if not plr or not plr.Character then return true end
+	local hrp = getHRP(plr.Character)
+	if not hrp then return true end
+
+	-- Nếu bất kỳ thuộc tính khác mong đợi thì cần apply
+	if hrp.Size ~= Vector3.new(hitboxSize, hitboxSize, hitboxSize) then return true end
+	if hrp.Transparency ~= (hiddenEnabled and 1 or 0.75) then return true end
+	-- Color/Material/CanCollide có thể bị thay đổi bởi game; so sánh cũng tốt
+	if hrp.Color ~= hitboxColor then return true end
+	if hrp.Material ~= Enum.Material.Neon then return true end
+	if hrp.CanCollide ~= false then return true end
+
+	return false
+end
+
+
+-- Thiết lập events cho player (respawn)
 local function setupPlayer(plr)
+	if not plr then return end
+
+	-- nếu player đã có character, apply ngay nếu bật
+	if plr.Character then
+		-- nếu HRP chưa tồn tại ngay lập tức, chờ trong background một chút
+		spawn(function()
+			local char = plr.Character
+			local tries = 0
+			while char and not getHRP(char) and tries < 50 do  -- ~5s
+				tries = tries + 1
+				task.wait(0.1)
+			end
+			if hitboxEnabled and plr ~= LocalPlayer then
+				applyHRP(plr)
+			end
+		end)
+	end
+
+	-- Khi respawn
 	plr.CharacterAdded:Connect(function(char)
-		setupCharacter(plr, char)
+		-- đợi HRP xuất hiện (an toàn)
+		spawn(function()
+			local tries = 0
+			while char and not getHRP(char) and tries < 50 do
+				tries = tries + 1
+				task.wait(0.1)
+			end
+			-- restore nếu hệ thống đang tắt? (không cần)
+			if hitboxEnabled and plr ~= LocalPlayer then
+				applyHRP(plr)
+			end
+		end)
+	end)
+
+	-- Khi player rời, cleanup dữ liệu
+	plr.AncestryChanged:Connect(function()
+		-- nothing
+	end)
+
+	Players.PlayerRemoving:Connect(function(leaving)
+		-- cleanup when any player leaves
+		if leaving and leaving.UserId and originalData[leaving.UserId] then
+			originalData[leaving.UserId] = nil
+		end
 	end)
 end
 
 
+-- Gắn event cho players hiện có
 for _, plr in ipairs(Players:GetPlayers()) do
 	if plr ~= LocalPlayer then
 		setupPlayer(plr)
 	end
 end
 
-
+-- Khi có player mới
 Players.PlayerAdded:Connect(function(plr)
 	if plr ~= LocalPlayer then
 		setupPlayer(plr)
@@ -448,37 +500,26 @@ Players.PlayerAdded:Connect(function(plr)
 end)
 
 
---========================================--
---  GLOBAL RECHECK (ANTI-MISS SYSTEM)
---========================================--
+-- RenderStepped loop: nếu bật thì đảm bảo apply liên tục (nếu cần)
+RunService.RenderStepped:Connect(function()
+	if not hitboxEnabled then return end
 
-task.spawn(function()
-	while true do
-		task.wait(0.3)
-
-		if not hitboxEnabled then continue end
-
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr ~= LocalPlayer then
-				local char = plr.Character
-				if char then
-					local hrp = char:FindFirstChild("HumanoidRootPart")
-
-					-- Nếu HRP có nhưng chưa apply → apply liền
-					if hrp and not applied[plr] then
-						applyHRP(plr)
-					end
-				end
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LocalPlayer then
+			-- nếu HRP thiếu, cố gắng chờ/đa lần bằng setupPlayer chuỗi
+			-- nếu cần apply (so sánh) → apply
+			local ok = false
+			-- try apply up to once per frame safely
+			if needsApply(plr) then
+				ok = applyHRP(plr)
 			end
+			-- nếu apply fail (ok == false) thì sẽ tự động thử lại khung sau
 		end
 	end
 end)
 
 
---========================================--
---  RESET WHEN TURN OFF
---========================================--
-
+-- Reset all (khi tắt)
 local function resetAll()
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr ~= LocalPlayer then
@@ -488,15 +529,13 @@ local function resetAll()
 end
 
 
---========================================--
---  UI EVENTS
---========================================--
-
+-- BUTTON EVENTS
 Button.MouseButton1Click:Connect(function()
 	hitboxEnabled = not hitboxEnabled
 	UpdateUI()
 
 	if not hitboxEnabled then
+		-- restore mọi người
 		resetAll()
 	end
 end)
@@ -508,30 +547,31 @@ end)
 
 SizeBox.FocusLost:Connect(function()
 	local num = tonumber(SizeBox.Text)
-	if num and num >= 2 and num <= 200 then
+	if num and num >= 2 and num <= 500 then
 		hitboxSize = num
 	end
 end)
 
-
---========================================--
---  RGB UPDATE
---========================================--
-
+-- RGB input
 local function updateColor()
 	local r = tonumber(RBox.Text) or 255
 	local g = tonumber(GBox.Text) or 255
 	local b = tonumber(BBox.Text) or 255
 
-	hitboxColor = Color3.fromRGB(
-		math.clamp(r, 0, 255),
-		math.clamp(g, 0, 255),
-		math.clamp(b, 0, 255)
-	)
-
+	hitboxColor = Color3.fromRGB(math.clamp(r, 0, 255), math.clamp(g, 0, 255), math.clamp(b, 0, 255))
 	UpdateUI()
 end
 
 RBox.FocusLost:Connect(updateColor)
 GBox.FocusLost:Connect(updateColor)
 BBox.FocusLost:Connect(updateColor)
+
+
+-- cuối cùng: nếu người dùng bật script ngay lập tức, apply 1 lần nhanh
+if hitboxEnabled then
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LocalPlayer then
+			applyHRP(plr)
+		end
+	end
+end
