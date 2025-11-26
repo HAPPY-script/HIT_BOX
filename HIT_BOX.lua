@@ -1,5 +1,5 @@
 game.StarterGui:SetCore("SendNotification", {
-    Title = "HITBOX v0.02";
+    Title = "HITBOX v0.03";
     Text = "Goodluck";
     Duration = 5;
 })
@@ -45,7 +45,6 @@ Title.BorderSizePixel = 0
 Title.BorderColor3 = Color3.new(0, 0, 0)
 Title.AnchorPoint = Vector2.new(0.5, 0.5)
 Title.TextTransparency = 0
-Title.TextStrokeTransparency = 0
 Title.Text = "Hitbox"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextSize = 14
@@ -128,6 +127,7 @@ R.BackgroundTransparency = 1
 R.BorderSizePixel = 0
 R.BorderColor3 = Color3.new(0, 0, 0)
 R.AnchorPoint = Vector2.new(0.5, 0.5)
+R.TextTransparency = 0
 R.Text = "255"
 R.TextColor3 = Color3.new(1, 0, 0)
 R.TextSize = 14
@@ -159,6 +159,7 @@ G.BackgroundTransparency = 1
 G.BorderSizePixel = 0
 G.BorderColor3 = Color3.new(0, 0, 0)
 G.AnchorPoint = Vector2.new(0.5, 0.5)
+G.TextTransparency = 0
 G.Text = "255"
 G.TextColor3 = Color3.new(0, 1, 0)
 G.TextSize = 14
@@ -190,6 +191,7 @@ B.BackgroundTransparency = 1
 B.BorderSizePixel = 0
 B.BorderColor3 = Color3.new(0, 0, 0)
 B.AnchorPoint = Vector2.new(0.5, 0.5)
+B.TextTransparency = 0
 B.Text = "255"
 B.TextColor3 = Color3.new(0, 0, 1)
 B.TextSize = 14
@@ -224,8 +226,8 @@ ViewColor.Parent = SelectColor
 
 local Size = Instance.new("TextBox")
 Size.Name = "Size"
-Size.Position = UDim2.new(0.275, 0, 0.7, 0)
-Size.Size = UDim2.new(0.45, 0, 0.45, 0)
+Size.Position = UDim2.new(0.275, 0, 0.775, 0)
+Size.Size = UDim2.new(0.45, 0, 0.35, 0)
 Size.BackgroundColor3 = Color3.new(1, 0, 1)
 Size.BackgroundTransparency = 0.5
 Size.BorderSizePixel = 0
@@ -248,8 +250,8 @@ UICorner3.Parent = Size
 
 local HiddenHitbox = Instance.new("TextButton")
 HiddenHitbox.Name = "HiddenHitbox"
-HiddenHitbox.Position = UDim2.new(0.275, 0, 0.375, 0)
-HiddenHitbox.Size = UDim2.new(0.4, 0, 0.15, 0)
+HiddenHitbox.Position = UDim2.new(0.163, 0, 0.425, 0)
+HiddenHitbox.Size = UDim2.new(0.2, 0, 0.3, 0)
 HiddenHitbox.BackgroundColor3 = Color3.new(1, 0.196078, 0.196078)
 HiddenHitbox.BorderSizePixel = 0
 HiddenHitbox.BorderColor3 = Color3.new(0, 0, 0)
@@ -267,8 +269,32 @@ UICorner4.Name = "UICorner"
 UICorner4.CornerRadius = UDim.new(0.15, 0)
 UICorner4.Parent = HiddenHitbox
 
+local Mode = Instance.new("TextButton")
+Mode.Name = "Mode"
+Mode.Position = UDim2.new(0.388, 0, 0.425, 0)
+Mode.Size = UDim2.new(0.2, 0, 0.3, 0)
+Mode.BackgroundColor3 = Color3.new(100,0,255)
+Mode.BorderSizePixel = 0
+Mode.BorderColor3 = Color3.new(0, 0, 0)
+Mode.AnchorPoint = Vector2.new(0.5, 0.5)
+Mode.Text = "Root"
+Mode.TextColor3 = Color3.new(1, 1, 1)
+Mode.TextSize = 14
+Mode.FontFace = Font.new("rbxasset://fonts/families/FredokaOne.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+Mode.TextScaled = true
+Mode.TextWrapped = true
+Mode.Parent = Main
+
+local UICorner5 = Instance.new("UICorner")
+UICorner5.Name = "UICorner"
+UICorner5.CornerRadius = UDim.new(0.15, 0)
+UICorner5.Parent = Mode
+
+--==============================================================================================================--
+
 --========================================--
---  HITBOX SYSTEM (HRP + RENDERSTEPPED)
+--  HITBOX SYSTEM (ROOT <-> HEAD MODE)
+--  Robust, supports R15/R6, auto reapply
 --========================================--
 
 local Players = game:GetService("Players")
@@ -282,31 +308,7 @@ local Main = Screen:WaitForChild("Main")
 local Button = Main:WaitForChild("Button")
 local SizeBox = Main:WaitForChild("Size")
 local HiddenButton = Main:WaitForChild("HiddenHitbox")
-
-local SelectColor = Main:WaitForChild("SelectColor")
-local RBox = SelectColor:WaitForChild("R")
-local GBox = SelectColor:WaitForChild("G")
-local BBox = SelectColor:WaitForChild("B")
-local ViewColor = SelectColor:WaitForChild("ViewColor")
-
---===============================================================================================================================--
-
---========================================--
---  HITBOX SYSTEM (ROBUST & RELIABLE)
---  Hỗ trợ R15/R6, auto reapply, no-skip
---========================================--
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-local Screen = PlayerGui:WaitForChild("HitBoxScreen")
-local Main = Screen:WaitForChild("Main")
-
-local Button = Main:WaitForChild("Button")
-local SizeBox = Main:WaitForChild("Size")
-local HiddenButton = Main:WaitForChild("HiddenHitbox")
+local ModeButton = Main:WaitForChild("Mode") -- new
 
 local SelectColor = Main:WaitForChild("SelectColor")
 local RBox = SelectColor:WaitForChild("R")
@@ -321,91 +323,142 @@ local hiddenEnabled = false
 local hitboxSize = 20
 local hitboxColor = Color3.fromRGB(255, 255, 255)
 
--- Lưu data gốc theo UserId
-local originalData = {}   -- [userId] = { Size, Transparency, Material, Color }
+-- Mode: "Root" or "Head"
+local mode = "Root" -- default
+
+-- Lưu data gốc theo UserId: originalData[id] = { hrp = {...}, head = {...} }
+local originalData = {}
 
 -- UI update
 local function UpdateUI()
 	Button.Text = hitboxEnabled and "ON" or "OFF"
 	Button.BackgroundColor3 = hitboxEnabled and Color3.fromRGB(50,255,50) or Color3.fromRGB(255,50,50)
+
 	HiddenButton.Text = hiddenEnabled and "Hidden: ON" or "Hidden: OFF"
 	HiddenButton.BackgroundColor3 = hiddenEnabled and Color3.fromRGB(50,255,50) or Color3.fromRGB(255,50,50)
+
 	ViewColor.BackgroundColor3 = hitboxColor
+
+	-- Mode UI
+	ModeButton.Text = mode
+	if mode == "Root" then
+		ModeButton.BackgroundColor3 = Color3.fromRGB(100,0,255)
+	else
+		ModeButton.BackgroundColor3 = Color3.fromRGB(0,150,255)
+	end
 end
 UpdateUI()
 
 
--- Helper: lấy HumanoidRootPart hoặc torso phù hợp (R15/R6)
+-- Helpers: get HRP (supports R15/R6) and Head
 local function getHRP(character)
 	if not character then return nil end
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	if hrp and hrp:IsA("BasePart") then return hrp end
-
-	-- R6 older names
 	hrp = character:FindFirstChild("UpperTorso") or character:FindFirstChild("LowerTorso") or character:FindFirstChild("Torso")
 	if hrp and hrp:IsA("BasePart") then return hrp end
+	return nil
+end
 
+local function getHead(character)
+	if not character then return nil end
+	local head = character:FindFirstChild("Head")
+	if head and head:IsA("BasePart") then return head end
 	return nil
 end
 
 
--- Lưu giá trị gốc (luôn lưu lần đầu tiên gặp HRP)
-local function saveOriginal(plr, hrp)
+-- Save original per part
+local function ensureOriginalEntry(id)
+	if not originalData[id] then
+		originalData[id] = { hrp = nil, head = nil }
+	end
+end
+
+local function saveOriginalHRP(plr, hrp)
 	if not plr or not hrp then return end
 	local id = plr.UserId
-	if originalData[id] then return end
-
-	-- pcall để an toàn (một số game chặn/override)
-	local ok, res = pcall(function()
-		originalData[id] = {
+	ensureOriginalEntry(id)
+	if originalData[id].hrp then return end
+	pcall(function()
+		originalData[id].hrp = {
 			Size = hrp.Size,
 			Transparency = hrp.Transparency,
 			Material = hrp.Material,
 			Color = hrp.Color,
+			CanCollide = hrp.CanCollide,
 		}
 	end)
-	-- nếu pcall fail thì vẫn tiếp tục (không lưu)
+end
+
+local function saveOriginalHead(plr, head)
+	if not plr or not head then return end
+	local id = plr.UserId
+	ensureOriginalEntry(id)
+	if originalData[id].head then return end
+	pcall(function()
+		originalData[id].head = {
+			Size = head.Size,
+			Transparency = head.Transparency,
+			Material = head.Material,
+			Color = head.Color,
+			CanCollide = head.CanCollide,
+		}
+	end)
 end
 
 
--- Restore HRP sử dụng data gốc; nếu không có data gốc, phục hồi các giá trị an toàn
+-- Restore functions
 local function restoreHRP(plr)
 	if not plr or not plr.Character then return end
 	local hrp = getHRP(plr.Character)
 	if not hrp then return end
-
 	local id = plr.UserId
-	local data = originalData[id]
-
+	local data = originalData[id] and originalData[id].hrp
 	pcall(function()
 		if data then
 			if data.Size then hrp.Size = data.Size end
-			-- theo yêu cầu: khi restore transparency = 0.75
 			hrp.Transparency = 0.75
 			if data.Material then hrp.Material = data.Material end
 			if data.Color then hrp.Color = data.Color end
-			hrp.CanCollide = true
-			originalData[id] = nil
+			if data.CanCollide ~= nil then hrp.CanCollide = data.CanCollide end
+			originalData[id].hrp = nil
 		else
-			-- không có dữ liệu gốc: fallback an toàn
 			hrp.Transparency = 0.75
 			hrp.CanCollide = true
-			-- không thay đổi Size nếu không biết gốc (tránh phá mô hình)
+			-- do not change size if no backup
+		end
+	end)
+end
+
+local function restoreHead(plr)
+	if not plr or not plr.Character then return end
+	local head = getHead(plr.Character)
+	if not head then return end
+	local id = plr.UserId
+	local data = originalData[id] and originalData[id].head
+	pcall(function()
+		if data then
+			if data.Size then head.Size = data.Size end
+			head.Transparency = 0.75
+			if data.Material then head.Material = data.Material end
+			if data.Color then head.Color = data.Color end
+			if data.CanCollide ~= nil then head.CanCollide = data.CanCollide end
+			originalData[id].head = nil
+		else
+			head.Transparency = 0.75
+			head.CanCollide = true
 		end
 	end)
 end
 
 
--- Áp dụng hitbox lên HRP (với saveOriginal trước)
-local function applyHRP(plr)
+-- Apply functions
+local function applyToHRP(plr)
 	if not plr or not plr.Character then return false end
 	local hrp = getHRP(plr.Character)
 	if not hrp then return false end
-
-	-- Lưu gốc nếu cần
-	saveOriginal(plr, hrp)
-
-	-- Áp dụng thay đổi (pcall để an toàn)
+	saveOriginalHRP(plr, hrp)
 	local ok = pcall(function()
 		hrp.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
 		hrp.CanCollide = false
@@ -416,114 +469,147 @@ local function applyHRP(plr)
 	return ok
 end
 
-
--- Kiểm tra nếu HRP cần apply lại (so sánh nhanh)
-local function needsApply(plr)
-	if not plr or not plr.Character then return true end
-	local hrp = getHRP(plr.Character)
-	if not hrp then return true end
-
-	-- Nếu bất kỳ thuộc tính khác mong đợi thì cần apply
-	if hrp.Size ~= Vector3.new(hitboxSize, hitboxSize, hitboxSize) then return true end
-	if hrp.Transparency ~= (hiddenEnabled and 1 or 0.75) then return true end
-	-- Color/Material/CanCollide có thể bị thay đổi bởi game; so sánh cũng tốt
-	if hrp.Color ~= hitboxColor then return true end
-	if hrp.Material ~= Enum.Material.Neon then return true end
-	if hrp.CanCollide ~= false then return true end
-
-	return false
+local function applyToHead(plr)
+	if not plr or not plr.Character then return false end
+	local head = getHead(plr.Character)
+	if not head then return false end
+	saveOriginalHead(plr, head)
+	local ok = pcall(function()
+		-- apply size; head often is approximately cube of head size
+		head.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+		head.CanCollide = false
+		head.Color = hitboxColor
+		head.Material = Enum.Material.Neon
+		head.Transparency = hiddenEnabled and 1 or 0.75
+	end)
+	return ok
 end
 
 
--- Thiết lập events cho player (respawn)
+-- needsApply checks depending on mode
+local function needsApply(plr)
+	if not plr or not plr.Character then return true end
+	if mode == "Root" then
+		local hrp = getHRP(plr.Character)
+		if not hrp then return true end
+		if hrp.Size ~= Vector3.new(hitboxSize, hitboxSize, hitboxSize) then return true end
+		if hrp.Transparency ~= (hiddenEnabled and 1 or 0.75) then return true end
+		if hrp.Color ~= hitboxColor then return true end
+		if hrp.Material ~= Enum.Material.Neon then return true end
+		if hrp.CanCollide ~= false then return true end
+		-- ensure head restored if previously used
+		local id = plr.UserId
+		if originalData[id] and originalData[id].head then
+			-- if head backup still present, it means we changed head earlier; ensure head restored (not required here)
+		end
+		return false
+	else -- Head mode
+		local head = getHead(plr.Character)
+		if not head then return true end
+		if head.Size ~= Vector3.new(hitboxSize, hitboxSize, hitboxSize) then return true end
+		if head.Transparency ~= (hiddenEnabled and 1 or 0.75) then return true end
+		if head.Color ~= hitboxColor then return true end
+		if head.Material ~= Enum.Material.Neon then return true end
+		if head.CanCollide ~= false then return true end
+		return false
+	end
+end
+
+
+-- Setup per-player events (respawn, initial apply)
 local function setupPlayer(plr)
 	if not plr then return end
 
-	-- nếu player đã có character, apply ngay nếu bật
+	-- initial character handling
 	if plr.Character then
-		-- nếu HRP chưa tồn tại ngay lập tức, chờ trong background một chút
 		spawn(function()
 			local char = plr.Character
 			local tries = 0
-			while char and not getHRP(char) and tries < 50 do  -- ~5s
+			while char and not (getHRP(char) or getHead(char)) and tries < 50 do
 				tries = tries + 1
 				task.wait(0.1)
 			end
 			if hitboxEnabled and plr ~= LocalPlayer then
-				applyHRP(plr)
+				if mode == "Root" then
+					applyToHRP(plr)
+				else
+					-- restore HRP if leftover before applying head
+					restoreHRP(plr)
+					applyToHead(plr)
+				end
 			end
 		end)
 	end
 
-	-- Khi respawn
+	-- CharacterAdded: respawn handling
 	plr.CharacterAdded:Connect(function(char)
-		-- đợi HRP xuất hiện (an toàn)
 		spawn(function()
 			local tries = 0
-			while char and not getHRP(char) and tries < 50 do
+			while char and not (getHRP(char) or getHead(char)) and tries < 50 do
 				tries = tries + 1
 				task.wait(0.1)
 			end
-			-- restore nếu hệ thống đang tắt? (không cần)
+			-- On respawn, if hitboxEnabled apply current mode; also restore opposite part if needed
 			if hitboxEnabled and plr ~= LocalPlayer then
-				applyHRP(plr)
+				if mode == "Root" then
+					-- ensure head is restored if we previously changed it
+					restoreHead(plr)
+					applyToHRP(plr)
+				else
+					restoreHRP(plr)
+					applyToHead(plr)
+				end
 			end
 		end)
 	end)
-
-	-- Khi player rời, cleanup dữ liệu
-	plr.AncestryChanged:Connect(function()
-		-- nothing
-	end)
-
-	Players.PlayerRemoving:Connect(function(leaving)
-		-- cleanup when any player leaves
-		if leaving and leaving.UserId and originalData[leaving.UserId] then
-			originalData[leaving.UserId] = nil
-		end
-	end)
 end
 
-
--- Gắn event cho players hiện có
+-- connect existing players and future players
 for _, plr in ipairs(Players:GetPlayers()) do
 	if plr ~= LocalPlayer then
 		setupPlayer(plr)
 	end
 end
-
--- Khi có player mới
 Players.PlayerAdded:Connect(function(plr)
 	if plr ~= LocalPlayer then
 		setupPlayer(plr)
 	end
 end)
 
+-- cleanup on leave
+Players.PlayerRemoving:Connect(function(leaving)
+	if leaving and leaving.UserId and originalData[leaving.UserId] then
+		originalData[leaving.UserId] = nil
+	end
+end)
 
--- RenderStepped loop: nếu bật thì đảm bảo apply liên tục (nếu cần)
+
+-- RenderStepped loop: apply per current mode
 RunService.RenderStepped:Connect(function()
 	if not hitboxEnabled then return end
-
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr ~= LocalPlayer then
-			-- nếu HRP thiếu, cố gắng chờ/đa lần bằng setupPlayer chuỗi
-			-- nếu cần apply (so sánh) → apply
-			local ok = false
-			-- try apply up to once per frame safely
 			if needsApply(plr) then
-				ok = applyHRP(plr)
+				if mode == "Root" then
+					-- ensure head is restored when using Root
+					restoreHead(plr)
+					applyToHRP(plr)
+				else
+					restoreHRP(plr)
+					applyToHead(plr)
+				end
 			end
-			-- nếu apply fail (ok == false) thì sẽ tự động thử lại khung sau
 		end
 	end
 end)
 
 
--- Reset all (khi tắt)
+-- Reset all parts (when turning off) -> restore both hrp and head
 local function resetAll()
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr ~= LocalPlayer then
 			restoreHRP(plr)
+			restoreHead(plr)
 		end
 	end
 end
@@ -533,9 +619,7 @@ end
 Button.MouseButton1Click:Connect(function()
 	hitboxEnabled = not hitboxEnabled
 	UpdateUI()
-
 	if not hitboxEnabled then
-		-- restore mọi người
 		resetAll()
 	end
 end)
@@ -543,6 +627,38 @@ end)
 HiddenButton.MouseButton1Click:Connect(function()
 	hiddenEnabled = not hiddenEnabled
 	UpdateUI()
+end)
+
+-- Mode toggle
+ModeButton.MouseButton1Click:Connect(function()
+	-- flip mode
+	if mode == "Root" then
+		mode = "Head"
+	else
+		mode = "Root"
+	end
+	UpdateUI()
+
+	-- Immediately switch effects for all players if enabled
+	if hitboxEnabled then
+		if mode == "Root" then
+			-- restore head and apply HRP
+			for _, plr in ipairs(Players:GetPlayers()) do
+				if plr ~= LocalPlayer then
+					restoreHead(plr)
+					applyToHRP(plr)
+				end
+			end
+		else
+			-- restore hrp and apply Head
+			for _, plr in ipairs(Players:GetPlayers()) do
+				if plr ~= LocalPlayer then
+					restoreHRP(plr)
+					applyToHead(plr)
+				end
+			end
+		end
+	end
 end)
 
 SizeBox.FocusLost:Connect(function()
@@ -567,11 +683,15 @@ GBox.FocusLost:Connect(updateColor)
 BBox.FocusLost:Connect(updateColor)
 
 
--- cuối cùng: nếu người dùng bật script ngay lập tức, apply 1 lần nhanh
+-- Final quick apply in case hitbox already enabled
 if hitboxEnabled then
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr ~= LocalPlayer then
-			applyHRP(plr)
+			if mode == "Root" then
+				applyToHRP(plr)
+			else
+				applyToHead(plr)
+			end
 		end
 	end
 end
