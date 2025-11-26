@@ -1,5 +1,5 @@
 game.StarterGui:SetCore("SendNotification", {
-    Title = "HITBOX v0.01";
+    Title = "HITBOX v0.02";
     Text = "Goodluck";
     Duration = 5;
 })
@@ -289,9 +289,8 @@ local BBox = SelectColor:WaitForChild("B")
 local ViewColor = SelectColor:WaitForChild("ViewColor")
 
 --================================================================================================================--
-
 --========================================--
---  HITBOX SYSTEM
+--  HITBOX SYSTEM (AUTO UPDATE VERSION)
 --========================================--
 
 local Players = game:GetService("Players")
@@ -312,6 +311,7 @@ local GBox = SelectColor:WaitForChild("G")
 local BBox = SelectColor:WaitForChild("B")
 local ViewColor = SelectColor:WaitForChild("ViewColor")
 
+
 --========================================--
 --  VARIABLES
 --========================================--
@@ -321,12 +321,11 @@ local hiddenEnabled = false
 local hitboxSize = 20
 local hitboxColor = Color3.fromRGB(255, 255, 255)
 
--- Lưu giá trị HRP gốc để khôi phục
-local originalData = {}   -- [plr] = { Size, Transparency, Material, Color }
+local originalData = {}   -- Lưu data HRP gốc
 
 
 --========================================--
---  UPDATE UI
+--  UI UPDATE
 --========================================--
 
 local function UpdateUI()
@@ -338,29 +337,28 @@ local function UpdateUI()
 
 	ViewColor.BackgroundColor3 = hitboxColor
 end
+
 UpdateUI()
 
 
-
 --========================================--
---  SAVE ORIGINAL HRP DATA
+--  SAVE ORIGINAL HRP
 --========================================--
 
 local function saveOriginal(plr, hrp)
-	if originalData[plr] then return end
-
-	originalData[plr] = {
-		Size = hrp.Size,
-		Transparency = hrp.Transparency,
-		Material = hrp.Material,
-		Color = hrp.Color,
-	}
+	if not originalData[plr] then
+		originalData[plr] = {
+			Size = hrp.Size,
+			Transparency = hrp.Transparency,
+			Material = hrp.Material,
+			Color = hrp.Color,
+		}
+	end
 end
 
 
-
 --========================================--
---  RESTORE ORIGINAL HRP
+--  RESTORE HRP
 --========================================--
 
 local function restoreHRP(plr)
@@ -373,18 +371,17 @@ local function restoreHRP(plr)
 	local data = originalData[plr]
 
 	hrp.Size = data.Size
-	hrp.Transparency = 0.75 -- đúng yêu cầu
 	hrp.Material = data.Material
 	hrp.Color = data.Color
+	hrp.Transparency = 0.75
 	hrp.CanCollide = true
 
 	originalData[plr] = nil
 end
 
 
-
 --========================================--
---  APPLY HITBOX TO HRP
+--  APPLY HITBOX
 --========================================--
 
 local function applyHRP(plr)
@@ -393,10 +390,8 @@ local function applyHRP(plr)
 	local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
 
-	-- Lưu giá trị gốc (chỉ lưu 1 lần)
 	saveOriginal(plr, hrp)
 
-	-- Áp dụng hitbox
 	hrp.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
 	hrp.CanCollide = false
 	hrp.Color = hitboxColor
@@ -405,10 +400,43 @@ local function applyHRP(plr)
 end
 
 
+--========================================--
+--  AUTO UPDATE WHEN RESPAWN / NEW PLAYER
+--========================================--
+
+local function setupCharacter(plr, character)
+	character:WaitForChild("HumanoidRootPart")
+
+	-- Khi player spawn HRP mới → reset và apply lại nếu bật hitbox
+	if hitboxEnabled then
+		task.wait(0.1)
+		applyHRP(plr)
+	end
+end
+
+local function setupPlayer(plr)
+	plr.CharacterAdded:Connect(function(char)
+		setupCharacter(plr, char)
+	end)
+end
+
+-- Gắn event cho người chơi đã có
+for _, plr in ipairs(Players:GetPlayers()) do
+	if plr ~= LocalPlayer then
+		setupPlayer(plr)
+	end
+end
+
+-- Người mới vào game
+Players.PlayerAdded:Connect(function(plr)
+	if plr ~= LocalPlayer then
+		setupPlayer(plr)
+	end
+end)
 
 
 --========================================--
---  RESET ALL when turning OFF
+--  RESET ALL PLAYERS
 --========================================--
 
 local function resetAll()
@@ -420,35 +448,23 @@ local function resetAll()
 end
 
 
-
 --========================================--
---  UPDATE ALL PLAYERS (HOT UPDATE)
---========================================--
-
-local function updateAll()
-	for _, plr in ipairs(Players:GetPlayers()) do
-		if plr ~= LocalPlayer then
-			applyHRP(plr)
-		end
-	end
-end
-
-
-
---========================================--
---  RENDERSTEPPED LOOP
+--  UPDATE ALL LOOP
 --========================================--
 
 RunService.RenderStepped:Connect(function()
 	if hitboxEnabled then
-		updateAll()
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer then
+				applyHRP(plr)
+			end
+		end
 	end
 end)
 
 
-
 --========================================--
---  UI BUTTONS
+--  UI BUTTON EVENTS
 --========================================--
 
 Button.MouseButton1Click:Connect(function()
@@ -456,7 +472,7 @@ Button.MouseButton1Click:Connect(function()
 	UpdateUI()
 
 	if not hitboxEnabled then
-		resetAll()  -- tắt hệ thống → khôi phục toàn bộ
+		resetAll()
 	end
 end)
 
@@ -473,9 +489,8 @@ SizeBox.FocusLost:Connect(function()
 end)
 
 
-
 --========================================--
---  RGB INPUT
+--  RGB COLOR INPUT
 --========================================--
 
 local function updateColor()
@@ -484,9 +499,9 @@ local function updateColor()
 	local b = tonumber(BBox.Text) or 255
 
 	hitboxColor = Color3.fromRGB(
-		math.clamp(r,0,255),
-		math.clamp(g,0,255),
-		math.clamp(b,0,255)
+		math.clamp(r, 0, 255),
+		math.clamp(g, 0, 255),
+		math.clamp(b, 0, 255)
 	)
 
 	UpdateUI()
