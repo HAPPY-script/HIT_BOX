@@ -289,9 +289,10 @@ local GBox = SelectColor:WaitForChild("G")
 local BBox = SelectColor:WaitForChild("B")
 local ViewColor = SelectColor:WaitForChild("ViewColor")
 
---================================================================================================================--
+--==============================================================================================================--
+
 --========================================--
---  HITBOX SYSTEM (AUTO UPDATE VERSION)
+--  HITBOX SYSTEM (STABLE - NO PLAYER SKIP)
 --========================================--
 
 local Players = game:GetService("Players")
@@ -312,7 +313,6 @@ local GBox = SelectColor:WaitForChild("G")
 local BBox = SelectColor:WaitForChild("B")
 local ViewColor = SelectColor:WaitForChild("ViewColor")
 
-
 --========================================--
 --  VARIABLES
 --========================================--
@@ -322,11 +322,12 @@ local hiddenEnabled = false
 local hitboxSize = 20
 local hitboxColor = Color3.fromRGB(255, 255, 255)
 
-local originalData = {}   -- Lưu data HRP gốc
+local originalData = {}    -- [player] = stored data
+local applied = {}         -- [player] = true nếu hitbox đang được áp
 
 
 --========================================--
---  UI UPDATE
+--  UPDATE UI
 --========================================--
 
 local function UpdateUI()
@@ -347,14 +348,14 @@ UpdateUI()
 --========================================--
 
 local function saveOriginal(plr, hrp)
-	if not originalData[plr] then
-		originalData[plr] = {
-			Size = hrp.Size,
-			Transparency = hrp.Transparency,
-			Material = hrp.Material,
-			Color = hrp.Color,
-		}
-	end
+	if originalData[plr] then return end
+
+	originalData[plr] = {
+		Size = hrp.Size,
+		Transparency = hrp.Transparency,
+		Material = hrp.Material,
+		Color = hrp.Color,
+	}
 end
 
 
@@ -364,9 +365,11 @@ end
 
 local function restoreHRP(plr)
 	if not originalData[plr] then return end
-	if not plr.Character then return end
 
-	local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+	local char = plr.Character
+	if not char then return end
+
+	local hrp = char:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
 
 	local data = originalData[plr]
@@ -378,6 +381,7 @@ local function restoreHRP(plr)
 	hrp.CanCollide = true
 
 	originalData[plr] = nil
+	applied[plr] = nil
 end
 
 
@@ -386,34 +390,42 @@ end
 --========================================--
 
 local function applyHRP(plr)
-	if not plr.Character then return end
+	local char = plr.Character
+	if not char then return end
 
-	local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
+	local hrp = char:FindFirstChild("HumanoidRootPart")
 	if not hrp then return end
 
 	saveOriginal(plr, hrp)
 
 	hrp.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-	hrp.CanCollide = false
 	hrp.Color = hitboxColor
 	hrp.Material = Enum.Material.Neon
+	hrp.CanCollide = false
 	hrp.Transparency = hiddenEnabled and 1 or 0.75
+
+	applied[plr] = true
 end
 
 
 --========================================--
---  AUTO UPDATE WHEN RESPAWN / NEW PLAYER
+--  FORCE APPLY WHEN RESPAWN
 --========================================--
 
-local function setupCharacter(plr, character)
-	character:WaitForChild("HumanoidRootPart")
+local function setupCharacter(plr, char)
+	task.spawn(function()
+		local hrp = char:WaitForChild("HumanoidRootPart", 5)
+		if not hrp then return end
 
-	-- Khi player spawn HRP mới → reset và apply lại nếu bật hitbox
-	if hitboxEnabled then
-		task.wait(0.1)
-		applyHRP(plr)
-	end
+		-- Chờ HRP ổn định để tránh miss
+		task.wait(0.15)
+
+		if hitboxEnabled then
+			applyHRP(plr)
+		end
+	end)
 end
+
 
 local function setupPlayer(plr)
 	plr.CharacterAdded:Connect(function(char)
@@ -421,14 +433,14 @@ local function setupPlayer(plr)
 	end)
 end
 
--- Gắn event cho người chơi đã có
+
 for _, plr in ipairs(Players:GetPlayers()) do
 	if plr ~= LocalPlayer then
 		setupPlayer(plr)
 	end
 end
 
--- Người mới vào game
+
 Players.PlayerAdded:Connect(function(plr)
 	if plr ~= LocalPlayer then
 		setupPlayer(plr)
@@ -437,7 +449,34 @@ end)
 
 
 --========================================--
---  RESET ALL PLAYERS
+--  GLOBAL RECHECK (ANTI-MISS SYSTEM)
+--========================================--
+
+task.spawn(function()
+	while true do
+		task.wait(0.3)
+
+		if not hitboxEnabled then continue end
+
+		for _, plr in ipairs(Players:GetPlayers()) do
+			if plr ~= LocalPlayer then
+				local char = plr.Character
+				if char then
+					local hrp = char:FindFirstChild("HumanoidRootPart")
+
+					-- Nếu HRP có nhưng chưa apply → apply liền
+					if hrp and not applied[plr] then
+						applyHRP(plr)
+					end
+				end
+			end
+		end
+	end
+end)
+
+
+--========================================--
+--  RESET WHEN TURN OFF
 --========================================--
 
 local function resetAll()
@@ -450,22 +489,7 @@ end
 
 
 --========================================--
---  UPDATE ALL LOOP
---========================================--
-
-RunService.RenderStepped:Connect(function()
-	if hitboxEnabled then
-		for _, plr in ipairs(Players:GetPlayers()) do
-			if plr ~= LocalPlayer then
-				applyHRP(plr)
-			end
-		end
-	end
-end)
-
-
---========================================--
---  UI BUTTON EVENTS
+--  UI EVENTS
 --========================================--
 
 Button.MouseButton1Click:Connect(function()
@@ -491,7 +515,7 @@ end)
 
 
 --========================================--
---  RGB COLOR INPUT
+--  RGB UPDATE
 --========================================--
 
 local function updateColor()
