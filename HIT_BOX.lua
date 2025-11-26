@@ -6,6 +6,7 @@ game.StarterGui:SetCore("SendNotification", {
 
 local HitBoxScreen = Instance.new("ScreenGui")
 HitBoxScreen.Name = "HitBoxScreen"
+HitBoxScreen.ResetOnSpawn = false
 HitBoxScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 HitBoxScreen.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
