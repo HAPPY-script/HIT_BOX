@@ -233,7 +233,7 @@ Size.BackgroundTransparency = 0.5
 Size.BorderSizePixel = 0
 Size.BorderColor3 = Color3.new(0, 0, 0)
 Size.AnchorPoint = Vector2.new(0.5, 0.5)
-Size.Transparency = 0.5
+Size.TextTransparency = 0
 Size.Text = "20"
 Size.TextColor3 = Color3.new(1, 1, 1)
 Size.TextSize = 14
@@ -273,7 +273,7 @@ local Mode = Instance.new("TextButton")
 Mode.Name = "Mode"
 Mode.Position = UDim2.new(0.388, 0, 0.425, 0)
 Mode.Size = UDim2.new(0.2, 0, 0.3, 0)
-Mode.BackgroundColor3 = Color3.new(100,0,255)
+Mode.BackgroundColor3 = Color3.new(0.392157, 0, 1)
 Mode.BorderSizePixel = 0
 Mode.BorderColor3 = Color3.new(0, 0, 0)
 Mode.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -290,13 +290,34 @@ UICorner5.Name = "UICorner"
 UICorner5.CornerRadius = UDim.new(0.15, 0)
 UICorner5.Parent = Mode
 
+local CloseButton = Instance.new("TextButton")
+CloseButton.Name = "CloseButton"
+CloseButton.Position = UDim2.new(0.975, 0, 0.025, 0)
+CloseButton.Size = UDim2.new(0.175, 0, 0.175, 0)
+CloseButton.BackgroundColor3 = Color3.new(0.745098, 0, 0)
+CloseButton.BorderSizePixel = 0
+CloseButton.BorderColor3 = Color3.new(0, 0, 0)
+CloseButton.AnchorPoint = Vector2.new(0.5, 0.5)
+CloseButton.Text = "Close"
+CloseButton.TextColor3 = Color3.new(1, 1, 1)
+CloseButton.TextSize = 14
+CloseButton.FontFace = Font.new("rbxasset://fonts/families/HighwayGothic.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+CloseButton.TextScaled = true
+CloseButton.TextWrapped = true
+CloseButton.Parent = Main
+
+local UICorner6 = Instance.new("UICorner")
+UICorner6.Name = "UICorner"
+UICorner6.CornerRadius = UDim.new(1, 0)
+UICorner6.Parent = CloseButton
+
+local UIAspectRatioConstraint6 = Instance.new("UIAspectRatioConstraint")
+UIAspectRatioConstraint6.Name = "UIAspectRatioConstraint"
+UIAspectRatioConstraint6.AspectRatio = 1.5
+UIAspectRatioConstraint6.Parent = CloseButton
+
 --==============================================================================================================--
-
---========================================--
---  HITBOX SYSTEM (ROOT <-> HEAD MODE)
---  Robust, supports R15/R6, auto reapply
---========================================--
-
+--SYSTEM
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
@@ -309,6 +330,7 @@ local Button = Main:WaitForChild("Button")
 local SizeBox = Main:WaitForChild("Size")
 local HiddenButton = Main:WaitForChild("HiddenHitbox")
 local ModeButton = Main:WaitForChild("Mode") -- new
+local CloseButton = Main:FindFirstChild("CloseButton") -- may be nil if not present
 
 local SelectColor = Main:WaitForChild("SelectColor")
 local RBox = SelectColor:WaitForChild("R")
@@ -329,8 +351,14 @@ local mode = "Root" -- default
 -- Lưu data gốc theo UserId: originalData[id] = { hrp = {...}, head = {...} }
 local originalData = {}
 
+-- termination flag + connection storage
+local terminated = false
+local conns = {}        -- top-level connections (keys -> RBXConnection)
+local playerConns = {}  -- per-player connection table keyed by UserId
+
 -- UI update
 local function UpdateUI()
+	if terminated then return end
 	Button.Text = hitboxEnabled and "ON" or "OFF"
 	Button.BackgroundColor3 = hitboxEnabled and Color3.fromRGB(50,255,50) or Color3.fromRGB(255,50,50)
 
@@ -475,7 +503,6 @@ local function applyToHead(plr)
 	if not head then return false end
 	saveOriginalHead(plr, head)
 	local ok = pcall(function()
-		-- apply size; head often is approximately cube of head size
 		head.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
 		head.CanCollide = false
 		head.Color = hitboxColor
@@ -497,11 +524,6 @@ local function needsApply(plr)
 		if hrp.Color ~= hitboxColor then return true end
 		if hrp.Material ~= Enum.Material.Neon then return true end
 		if hrp.CanCollide ~= false then return true end
-		-- ensure head restored if previously used
-		local id = plr.UserId
-		if originalData[id] and originalData[id].head then
-			-- if head backup still present, it means we changed head earlier; ensure head restored (not required here)
-		end
 		return false
 	else -- Head mode
 		local head = getHead(plr.Character)
@@ -520,6 +542,9 @@ end
 local function setupPlayer(plr)
 	if not plr then return end
 
+	-- ensure per-player conn table
+	playerConns[plr.UserId] = playerConns[plr.UserId] or {}
+
 	-- initial character handling
 	if plr.Character then
 		spawn(function()
@@ -529,11 +554,11 @@ local function setupPlayer(plr)
 				tries = tries + 1
 				task.wait(0.1)
 			end
+			if terminated then return end
 			if hitboxEnabled and plr ~= LocalPlayer then
 				if mode == "Root" then
 					applyToHRP(plr)
 				else
-					-- restore HRP if leftover before applying head
 					restoreHRP(plr)
 					applyToHead(plr)
 				end
@@ -541,18 +566,18 @@ local function setupPlayer(plr)
 		end)
 	end
 
-	-- CharacterAdded: respawn handling
-	plr.CharacterAdded:Connect(function(char)
+	-- CharacterAdded: respawn handling (store conn so we can disconnect later)
+	local charConn = plr.CharacterAdded:Connect(function(char)
+		if terminated then return end
 		spawn(function()
 			local tries = 0
 			while char and not (getHRP(char) or getHead(char)) and tries < 50 do
 				tries = tries + 1
 				task.wait(0.1)
 			end
-			-- On respawn, if hitboxEnabled apply current mode; also restore opposite part if needed
+			if terminated then return end
 			if hitboxEnabled and plr ~= LocalPlayer then
 				if mode == "Root" then
-					-- ensure head is restored if we previously changed it
 					restoreHead(plr)
 					applyToHRP(plr)
 				else
@@ -562,6 +587,7 @@ local function setupPlayer(plr)
 			end
 		end)
 	end)
+	playerConns[plr.UserId].charConn = charConn
 end
 
 -- connect existing players and future players
@@ -570,28 +596,38 @@ for _, plr in ipairs(Players:GetPlayers()) do
 		setupPlayer(plr)
 	end
 end
-Players.PlayerAdded:Connect(function(plr)
+
+conns.playerAdded = Players.PlayerAdded:Connect(function(plr)
 	if plr ~= LocalPlayer then
 		setupPlayer(plr)
 	end
 end)
 
--- cleanup on leave
-Players.PlayerRemoving:Connect(function(leaving)
+conns.playerRemoving = Players.PlayerRemoving:Connect(function(leaving)
 	if leaving and leaving.UserId and originalData[leaving.UserId] then
 		originalData[leaving.UserId] = nil
+	end
+	-- disconnect per-player conns if present
+	if leaving and playerConns[leaving.UserId] then
+		local pc = playerConns[leaving.UserId]
+		if pc.charConn then pcall(function() pc.charConn:Disconnect() end) end
+		playerConns[leaving.UserId] = nil
 	end
 end)
 
 
+-- cleanup on leave (redundant with above but safe)
+-- Players.PlayerRemoving already handled
+
 -- RenderStepped loop: apply per current mode
-RunService.RenderStepped:Connect(function()
+conns.render = RunService.RenderStepped:Connect(function()
+	if terminated then return end
 	if not hitboxEnabled then return end
 	for _, plr in ipairs(Players:GetPlayers()) do
 		if plr ~= LocalPlayer then
 			if needsApply(plr) then
+				if terminated then return end
 				if mode == "Root" then
-					-- ensure head is restored when using Root
 					restoreHead(plr)
 					applyToHRP(plr)
 				else
@@ -615,8 +651,9 @@ local function resetAll()
 end
 
 
--- BUTTON EVENTS
-Button.MouseButton1Click:Connect(function()
+-- BUTTON EVENTS (store them so we can disconnect on close)
+conns.buttonConn = Button.MouseButton1Click:Connect(function()
+	if terminated then return end
 	hitboxEnabled = not hitboxEnabled
 	UpdateUI()
 	if not hitboxEnabled then
@@ -624,13 +661,14 @@ Button.MouseButton1Click:Connect(function()
 	end
 end)
 
-HiddenButton.MouseButton1Click:Connect(function()
+conns.hiddenConn = HiddenButton.MouseButton1Click:Connect(function()
+	if terminated then return end
 	hiddenEnabled = not hiddenEnabled
 	UpdateUI()
 end)
 
--- Mode toggle
-ModeButton.MouseButton1Click:Connect(function()
+conns.modeConn = ModeButton.MouseButton1Click:Connect(function()
+	if terminated then return end
 	-- flip mode
 	if mode == "Root" then
 		mode = "Head"
@@ -661,27 +699,75 @@ ModeButton.MouseButton1Click:Connect(function()
 	end
 end)
 
-SizeBox.FocusLost:Connect(function()
+conns.sizeConn = SizeBox.FocusLost:Connect(function()
+	if terminated then return end
 	local num = tonumber(SizeBox.Text)
 	if num and num >= 2 and num <= 500 then
 		hitboxSize = num
 	end
 end)
 
--- RGB input
-local function updateColor()
+-- RGB input handlers
+conns.rConn = RBox.FocusLost:Connect(function()
+	if terminated then return end
 	local r = tonumber(RBox.Text) or 255
 	local g = tonumber(GBox.Text) or 255
 	local b = tonumber(BBox.Text) or 255
 
 	hitboxColor = Color3.fromRGB(math.clamp(r, 0, 255), math.clamp(g, 0, 255), math.clamp(b, 0, 255))
 	UpdateUI()
+end)
+conns.gConn = GBox.FocusLost:Connect(function()
+	if terminated then return end
+	local r = tonumber(RBox.Text) or 255
+	local g = tonumber(GBox.Text) or 255
+	local b = tonumber(BBox.Text) or 255
+
+	hitboxColor = Color3.fromRGB(math.clamp(r, 0, 255), math.clamp(g, 0, 255), math.clamp(b, 0, 255))
+	UpdateUI()
+end)
+conns.bConn = BBox.FocusLost:Connect(function()
+	if terminated then return end
+	local r = tonumber(RBox.Text) or 255
+	local g = tonumber(GBox.Text) or 255
+	local b = tonumber(BBox.Text) or 255
+
+	hitboxColor = Color3.fromRGB(math.clamp(r, 0, 255), math.clamp(g, 0, 255), math.clamp(b, 0, 255))
+	UpdateUI()
+end)
+
+-- Close button: stop system, restore, disconnect, destroy GUI
+if CloseButton and CloseButton.MouseButton1Click then
+	conns.closeConn = CloseButton.MouseButton1Click:Connect(function()
+		-- prevent reentry
+		if terminated then return end
+		terminated = true
+
+		-- disable system
+		hitboxEnabled = false
+		-- restore players
+		resetAll()
+
+		-- disconnect stored per-player connections
+		for uid, pc in pairs(playerConns) do
+			if pc.charConn then
+				pcall(function() pc.charConn:Disconnect() end)
+			end
+			playerConns[uid] = nil
+		end
+
+		-- disconnect top-level connections
+		for k,v in pairs(conns) do
+			if v and typeof(v) == "RBXScriptConnection" then
+				pcall(function() v:Disconnect() end)
+			end
+			conns[k] = nil
+		end
+
+		-- finally destroy the ScreenGui
+		pcall(function() Screen:Destroy() end)
+	end)
 end
-
-RBox.FocusLost:Connect(updateColor)
-GBox.FocusLost:Connect(updateColor)
-BBox.FocusLost:Connect(updateColor)
-
 
 -- Final quick apply in case hitbox already enabled
 if hitboxEnabled then
